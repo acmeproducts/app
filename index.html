@@ -1,0 +1,24 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App - Google Drive Trash List</title>
+    <script src="main.js?v=20250512"></script>
+</head>
+<body>
+<h2>Google Drive Trash Files (Auto Flow)</h2>
+<button onclick="fetchTrashFiles()" id="fetch-btn" disabled>Fetch Trash Files</button>
+<table id="trash-files-table" hidden>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Size</th>
+            <th>Created Date</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+</body>
+</html>
