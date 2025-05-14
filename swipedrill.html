@@ -1,0 +1,1843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>DClick - PNG Metadata Viewer & Editor</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overscroll-behavior: none;
+            overflow: hidden;
+        }
+        
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        .header {
+            background-color: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-top: env(safe-area-inset-top, 10px);
+        }
+        
+        .app-logo {
+            font-weight: 600;
+            color: #374151;
+            font-size: 18px;
+        }
+        
+        .folder-info {
+            background-color: #e0e7ff;
+            color: #3730a3;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 14px;
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .main-content {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .image-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            background-color: #f3f4f6;
+        }
+        
+        .image-display {
+            max-width: 100%;
+            max-height: 65vh;
+            object-fit: contain;
+        }
+        
+        .metadata-panel {
+            border-top: 1px solid #e5e7eb;
+            background-color: white;
+            height: 35vh;
+            overflow-y: auto;
+            padding: 0;
+        }
+        
+        .metadata-tabs {
+            display: flex;
+            border-bottom: 1px solid #e5e7eb;
+            background-color: #f9fafb;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .metadata-tab {
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .metadata-tab.active {
+            border-bottom: 2px solid #3b82f6;
+            color: #3b82f6;
+        }
+        
+        .metadata-content {
+            padding: 12px;
+        }
+        
+        .metadata-section {
+            display: none;
+        }
+        
+        .metadata-section.active {
+            display: block;
+        }
+        
+        .metadata-field {
+            display: flex;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .field-label {
+            width: 120px;
+            font-weight: 500;
+            color: #4b5563;
+        }
+        
+        .field-value {
+            flex: 1;
+            word-break: break-word;
+        }
+        
+        .navigation-controls {
+            position: absolute;
+            bottom: 12px;
+            display: flex;
+            gap: 8px;
+        }
+        
+        .nav-button {
+            background-color: rgba(255, 255, 255, 0.8);
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            padding: 6px 12px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .nav-button:hover {
+            background-color: #f9fafb;
+        }
+        
+        .batch-controls {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            padding: 8px;
+        }
+        
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
+        
+        .modal:not(.hidden) {
+            display: flex;
+        }
+        
+        .modal.hidden {
+            display: none !important;
+        }
+        
+        .modal-content {
+            background-color: white;
+            border-radius: 8px;
+            max-width: 90%;
+            width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .status-message {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: opacity 0.3s;
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .status-message.show {
+            opacity: 1;
+        }
+
+        .folder-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .folder-item {
+            padding: 8px 12px;
+            border-bottom: 1px solid #e5e7eb;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .folder-item:hover {
+            background-color: #f3f4f6;
+        }
+        
+        .collapsible-section {
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        
+        .section-header {
+            padding: 8px 12px;
+            background-color: #f9fafb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .section-title {
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .section-icon {
+            transition: transform 0.3s ease;
+        }
+        
+        .section-icon.open {
+            transform: rotate(180deg);
+        }
+        
+        .section-content {
+            padding: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease;
+        }
+        
+        .section-content.expanded {
+            padding: 12px;
+            max-height: 1000px;
+        }
+        
+        .monospace {
+            font-family: monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
+            font-size: 12px;
+            background-color: #f3f4f6;
+            padding: 8px;
+            border-radius: 4px;
+        }
+        
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px 10px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            white-space: nowrap;
+            font-size: 12px;
+        }
+        
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top-color: #3b82f6;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        @media (min-width: 768px) {
+            .app-container {
+                flex-direction: row;
+            }
+            
+            .main-content {
+                flex: 2;
+                height: 100vh;
+            }
+            
+            .metadata-panel {
+                flex: 1;
+                height: 100vh;
+                border-top: none;
+                border-left: 1px solid #e5e7eb;
+            }
+            
+            .image-display {
+                max-height: 90vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="login-screen" class="fixed inset-0 bg-gray-100 flex items-center justify-center p-4 z-50">
+        <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+            <h1 class="text-2xl font-bold text-center mb-6">DClick</h1>
+            <p class="text-gray-600 text-center mb-6">PNG Metadata Viewer & Editor</p>
+            <button id="login-button" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200 mb-4">
+                Log in with Google
+            </button>
+            
+            <div class="text-center mb-2">
+                <button id="show-manual-login" class="text-blue-600 hover:text-blue-800 text-sm">
+                    Or enter access token manually
+                </button>
+            </div>
+            
+            <div id="manual-login-section" class="hidden mt-4">
+                <div class="mb-4">
+                    <label for="manual-token" class="block text-sm font-medium text-gray-700 mb-1">Access Token</label>
+                    <input type="password" id="manual-token" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Paste your access token here">
+                </div>
+                <button id="manual-login-button" class="w-full bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition duration-200">
+                    Login with Token
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- App Screen (hidden initially) -->
+    <div id="app-screen" class="app-container hidden z-0">
+        <div class="header">
+            <span class="app-logo">DClick</span>
+            <span id="current-folder" class="folder-info cursor-pointer">Select a folder</span>
+            <button id="logout-button" class="text-gray-500 hover:text-gray-700 text-sm">Logout</button>
+        </div>
+        
+        <div class="main-content">
+            <div class="image-container">
+                <img id="image-display" class="image-display" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300' viewBox='0 0 300 300' fill='none'%3E%3Crect width='300' height='300' fill='%23E5E7EB'/%3E%3Cpath d='M130 120H170V180H130V120Z' fill='%239CA3AF'/%3E%3Ccircle cx='150' cy='90' r='20' fill='%239CA3AF'/%3E%3C/svg%3E" alt="No image selected">
+                <div class="navigation-controls">
+                    <button id="prev-button" class="nav-button" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
+                        </svg>
+                        Previous
+                    </button>
+                    <button id="next-button" class="nav-button" disabled>
+                        Next
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                        </svg>
+                    </button>
+                    <button id="delete-button" class="nav-button bg-red-100 hover:bg-red-200" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                        </svg>
+                        Delete
+                    </button>
+                </div>
+                <div class="batch-controls">
+                    <button id="batch-button" class="nav-button" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M5 11.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5z"/>
+                            <path d="M1.713 11.865v-.474H2c.217 0 .363-.137.363-.317 0-.185-.158-.31-.361-.31-.223 0-.367.152-.373.31h-.59c.016-.467.373-.787.986-.787.588-.002.954.291.957.703a.595.595 0 0 1-.492.594v.033a.615.615 0 0 1 .569.631c.003.533-.502.8-1.051.8-.656 0-1-.37-1.008-.794h.582c.008.178.186.306.422.309.254 0 .424-.145.422-.35-.002-.195-.155-.348-.414-.348h-.3zm-.004-4.699h-.604v-.035c0-.408.295-.844.958-.844.583 0 .96.326.96.756 0 .389-.257.617-.476.848l-.537.572v.03h1.054V9H1.143v-.395l.957-.99c.138-.142.293-.304.293-.508 0-.18-.147-.32-.342-.32a.33.33 0 0 0-.342.338v.041zM2.564 5h-.635V2.924h-.031l-.598.42v-.567l.629-.443h.635V5z"/>
+                        </svg>
+                        Batch
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="metadata-panel">
+            <div class="metadata-tabs">
+                <div class="metadata-tab active" data-tab="details">Details</div>
+                <div class="metadata-tab" data-tab="custom">PNG Metadata</div>
+                <div class="metadata-tab" data-tab="edit">Edit</div>
+            </div>
+            
+            <div class="metadata-content">
+                <!-- Details Tab -->
+                <div class="metadata-section active" id="details-section">
+                    <div class="metadata-field">
+                        <div class="field-label">Filename:</div>
+                        <div id="filename-value" class="field-value">No file selected</div>
+                    </div>
+                    <div class="metadata-field">
+                        <div class="field-label">File Type:</div>
+                        <div id="filetype-value" class="field-value">-</div>
+                    </div>
+                    <div class="metadata-field">
+                        <div class="field-label">File Size:</div>
+                        <div id="filesize-value" class="field-value">-</div>
+                    </div>
+                    <div class="metadata-field">
+                        <div class="field-label">Created:</div>
+                        <div id="created-value" class="field-value">-</div>
+                    </div>
+                    <div class="metadata-field">
+                        <div class="field-label">Modified:</div>
+                        <div id="modified-value" class="field-value">-</div>
+                    </div>
+                    <div class="metadata-field">
+                        <div class="field-label">Dimensions:</div>
+                        <div id="dimensions-value" class="field-value">-</div>
+                    </div>
+                </div>
+                
+                <!-- Custom Tab (PNG Metadata) -->
+                <div class="metadata-section" id="custom-section">
+                    <div id="no-custom-metadata" class="text-gray-500 italic text-sm">No custom metadata available for this file.</div>
+                    <div id="custom-metadata-container" class="space-y-4 mt-2"></div>
+                </div>
+                
+                <!-- Edit Tab -->
+                <div class="metadata-section" id="edit-section">
+                    <div class="mb-4">
+                        <label for="metadata-key" class="block text-sm font-medium text-gray-700 mb-1">Metadata Key</label>
+                        <input type="text" id="metadata-key" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g., Author, Description, API_Call">
+                    </div>
+                    <div class="mb-4">
+                        <label for="metadata-value" class="block text-sm font-medium text-gray-700 mb-1">Metadata Value</label>
+                        <textarea id="metadata-value" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-24" placeholder="Enter metadata value here"></textarea>
+                    </div>
+                    <div class="flex justify-end space-x-2">
+                        <button id="save-metadata-button" class="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed" disabled>Save Metadata</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Folder Selection Modal -->
+    <div id="folder-modal" class="modal hidden z-50">
+        <div class="modal-content p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium">Select a Folder</h3>
+                <button id="close-folder-modal" class="text-gray-500 hover:text-gray-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                    </svg>
+                </button>
+            </div>
+            <div id="folder-list-container" class="folder-list">
+                <div class="flex items-center justify-center py-6">
+                    <div class="loading-spinner"></div>
+                    <span>Loading folders...</span>
+                </div>
+            </div>
+            <div class="mt-4 flex justify-end">
+                <button id="refresh-folders" class="text-blue-600 hover:text-blue-800 mr-auto">Refresh</button>
+                <button id="cancel-folder-select" class="text-gray-600 hover:text-gray-800">Cancel</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Batch Operations Modal -->
+    <div id="batch-modal" class="modal hidden z-50">
+        <div class="modal-content p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium">Batch Operations</h3>
+                <button id="close-batch-modal" class="text-gray-500 hover:text-gray-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="mt-4">
+                <h4 class="font-medium mb-2">Operations</h4>
+                <div class="space-y-2 mb-4">
+                    <div>
+                        <label class="flex items-center">
+                            <input type="radio" name="batch-operation" value="read" checked class="mr-2">
+                            Read all PNG metadata
+                        </label>
+                    </div>
+                    <div>
+                        <label class="flex items-center">
+                            <input type="radio" name="batch-operation" value="add" class="mr-2">
+                            Add/update metadata to all PNG files
+                        </label>
+                    </div>
+                </div>
+                
+                <div id="batch-add-fields" class="hidden mb-4">
+                    <div class="mb-4">
+                        <label for="batch-key" class="block text-sm font-medium text-gray-700 mb-1">Metadata Key</label>
+                        <input type="text" id="batch-key" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g., Author, Description, Source">
+                    </div>
+                    <div class="mb-4">
+                        <label for="batch-value" class="block text-sm font-medium text-gray-700 mb-1">Metadata Value</label>
+                        <textarea id="batch-value" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-20" placeholder="Enter metadata value here"></textarea>
+                    </div>
+                </div>
+                
+                <div id="batch-status" class="text-sm text-gray-600 mb-4 hidden">
+                    <div class="flex items-center mb-2">
+                        <div class="loading-spinner"></div>
+                        <span id="batch-status-message">Processing files...</span>
+                    </div>
+                    <div class="bg-gray-100 p-2 rounded-md">
+                        <div id="batch-progress" class="text-xs"></div>
+                    </div>
+                </div>
+                
+                <div id="batch-results" class="hidden">
+                    <h4 class="font-medium mb-2">Results</h4>
+                    <div id="batch-results-content" class="bg-gray-100 p-3 rounded-md text-sm max-h-40 overflow-y-auto"></div>
+                </div>
+                
+                <div class="flex justify-end space-x-2 mt-4">
+                    <button id="close-batch-results" class="bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300 transition duration-200 hidden">Close</button>
+                    <button id="cancel-batch" class="bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300 transition duration-200">Cancel</button>
+                    <button id="run-batch" class="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200">Run</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="modal hidden z-50">
+        <div class="modal-content p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium">Confirm Delete</h3>
+                <button id="close-delete-modal" class="text-gray-500 hover:text-gray-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <p class="text-gray-700 mb-4">Are you sure you want to delete this file? This action cannot be undone.</p>
+            
+            <div class="flex justify-end space-x-2">
+                <button id="cancel-delete" class="bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300 transition duration-200">Cancel</button>
+                <button id="confirm-delete" class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition duration-200">Delete</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="status-message" class="status-message">Operation completed successfully</div>
+    
+    <script>
+        // Configuration
+        const config = {
+            oauthProxyUrl: 'https://oauth-proxy-3idr.onrender.com',
+            redirectUri: 'https://acmeproducts.github.io/app',
+            scopes: [
+                'https://www.googleapis.com/auth/drive.file',
+                'https://www.googleapis.com/auth/drive.metadata'
+            ],
+            apiEndpoints: {
+                files: 'https://www.googleapis.com/drive/v3/files',
+                upload: 'https://www.googleapis.com/upload/drive/v3/files'
+            }
+        };
+        
+        // App state
+        const appState = {
+            accessToken: null,
+            currentFolder: null,
+            currentFolderName: '',
+            imageFiles: [],
+            currentImageIndex: -1,
+            pngMetadata: {},
+            dimensions: {},
+            isProcessingBatch: false
+        };
+        
+        // DOM Elements
+        let elements;
+        
+        // Utility functions
+        const utils = {
+            // Show a status message
+            showStatus: function(message, duration = 3000) {
+                elements.statusMessage.textContent = message;
+                elements.statusMessage.classList.add('show');
+                setTimeout(() => {
+                    elements.statusMessage.classList.remove('show');
+                }, duration);
+            },
+            
+            // Format file size
+            formatFileSize: function(bytes) {
+                if (!bytes) return 'Unknown';
+                
+                const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+                let size = bytes;
+                let unitIndex = 0;
+                
+                while (size >= 1024 && unitIndex < units.length - 1) {
+                    size /= 1024;
+                    unitIndex++;
+                }
+                
+                return `${size.toFixed(1)} ${units[unitIndex]}`;
+            },
+            
+            // Format date from ISO string
+            formatDate: function(isoString) {
+                if (!isoString) return 'Unknown';
+                try {
+                    const date = new Date(isoString);
+                    return date.toLocaleString();
+                } catch (e) {
+                    return isoString;
+                }
+            },
+            
+            // Store token in sessionStorage
+            storeToken: function(token) {
+                sessionStorage.setItem('dclick_access_token', token);
+            },
+            
+            // Retrieve token from sessionStorage
+            retrieveToken: function() {
+                return sessionStorage.getItem('dclick_access_token');
+            },
+            
+            // Clear token from sessionStorage
+            clearToken: function() {
+                sessionStorage.removeItem('dclick_access_token');
+            },
+            
+            // API Call with auth token
+            fetchWithAuth: async function(url, options = {}) {
+                const headers = {
+                    'Authorization': `Bearer ${appState.accessToken}`,
+                    ...options.headers
+                };
+                
+                try {
+                    const response = await fetch(url, {
+                        ...options,
+                        headers
+                    });
+                    
+                    if (!response.ok) {
+                        if (response.status === 401) {
+                            // Token expired, log out
+                            utils.clearToken();
+                            appState.accessToken = null;
+                            showLoginScreen();
+                            throw new Error('Authentication token expired');
+                        }
+                        
+                        const errorText = await response.text();
+                        throw new Error(`API error (${response.status}): ${errorText}`);
+                    }
+                    
+                    return response;
+                } catch (error) {
+                    console.error('API call failed:', error);
+                    throw error;
+                }
+            }
+        };
+        
+        // Authentication functions
+        const auth = {
+            // Initiate OAuth flow
+            login: function() {
+                // Generate random state parameter to prevent CSRF
+                const state = Math.random().toString(36).substring(2, 15);
+                sessionStorage.setItem('oauth_state', state);
+                
+                // Construct authorization URL with proxy
+                const authUrl = `${config.oauthProxyUrl}/authorize?` +
+                    `redirect_uri=${encodeURIComponent(config.redirectUri)}` +
+                    `&state=${state}` +
+                    `&scopes=${encodeURIComponent(config.scopes.join(' '))}`;
+                
+                // Redirect to authorization URL
+                window.location.href = authUrl;
+            },
+            
+            // Handle OAuth callback
+            handleCallback: function() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const code = urlParams.get('code');
+                const state = urlParams.get('state');
+                const storedState = sessionStorage.getItem('oauth_state');
+                
+                // Clear URL parameters without navigating
+                window.history.replaceState({}, document.title, window.location.pathname);
+                
+                // Validate state to prevent CSRF
+                if (!state || state !== storedState) {
+                    console.error('Invalid state parameter');
+                    return false;
+                }
+                
+                // Clean up state
+                sessionStorage.removeItem('oauth_state');
+                
+                if (code) {
+                    // Exchange code for token via proxy
+                    fetch(`${config.oauthProxyUrl}/token`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            code,
+                            redirect_uri: config.redirectUri
+                        })
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Token exchange failed');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        // Store token
+                        appState.accessToken = data.access_token;
+                        utils.storeToken(data.access_token);
+                        showAppScreen();
+                    })
+                    .catch(error => {
+                        console.error('Authentication error:', error);
+                        showLoginScreen();
+                    });
+                    
+                    return true;
+                }
+                
+                return false;
+            },
+            
+            // Check if user is authenticated
+            checkAuth: function() {
+                const token = utils.retrieveToken();
+                if (token) {
+                    appState.accessToken = token;
+                    return true;
+                }
+                return false;
+            },
+            
+            // Logout user
+            logout: function() {
+                appState.accessToken = null;
+                utils.clearToken();
+                showLoginScreen();
+            }
+        };
+        
+        // PNG Metadata functions
+        const pngMetadata = {
+            // Extract tEXt chunks from PNG buffer
+            extract: async function(buffer) {
+                if (!buffer) return {};
+                
+                const metadata = {};
+                const view = new DataView(buffer);
+                
+                // PNG header is 8 bytes: 89 50 4E 47 0D 0A 1A 0A
+                // After that are chunks: 4 bytes length, 4 bytes type, data, 4 bytes CRC
+                let pos = 8;
+                
+                try {
+                    while (pos < buffer.byteLength - 12) {
+                        const chunkLength = view.getUint32(pos, false); // Length is big-endian
+                        pos += 4;
+                        
+                        // Get chunk type as a string
+                        let chunkType = '';
+                        for (let i = 0; i < 4; i++) {
+                            chunkType += String.fromCharCode(view.getUint8(pos + i));
+                        }
+                        pos += 4;
+                        
+                        // Check if it's a tEXt chunk
+                        if (chunkType === 'tEXt') {
+                            // tEXt chunks have the format: Keyword\0Value
+                            let keyword = '';
+                            let value = '';
+                            let nullFound = false;
+                            
+                            for (let i = 0; i < chunkLength; i++) {
+                                const byte = view.getUint8(pos + i);
+                                
+                                if (!nullFound) {
+                                    if (byte === 0) {
+                                        nullFound = true;
+                                    } else {
+                                        keyword += String.fromCharCode(byte);
+                                    }
+                                } else {
+                                    value += String.fromCharCode(byte);
+                                }
+                            }
+                            
+                            metadata[keyword] = value;
+                        } else if (chunkType === 'IHDR') {
+                            // Extract width and height from IHDR chunk
+                            const width = view.getUint32(pos, false);
+                            const height = view.getUint32(pos + 4, false);
+                            metadata._dimensions = { width, height };
+                        }
+                        
+                        // Skip chunk data and CRC
+                        pos += chunkLength + 4;
+                    }
+                } catch (error) {
+                    console.error('Error extracting PNG metadata:', error);
+                }
+                
+                return metadata;
+            },
+            
+            // Get Image dimensions
+            getImageDimensions: function(url) {
+                return new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.onload = function() {
+                        resolve({
+                            width: this.width,
+                            height: this.height
+                        });
+                    };
+                    img.onerror = function() {
+                        reject(new Error('Failed to load image'));
+                    };
+                    img.src = url;
+                });
+            },
+            
+            // Format metadata for display
+            formatForDisplay: function(metadata) {
+                const container = elements.metadata.customContainer;
+                container.innerHTML = '';
+                
+                // Filter out internal properties and dimensions
+                const filteredMetadata = Object.entries(metadata).filter(([key]) => !key.startsWith('_'));
+                
+                if (filteredMetadata.length === 0) {
+                    elements.metadata.noCustomMessage.style.display = 'block';
+                    return;
+                }
+                
+                elements.metadata.noCustomMessage.style.display = 'none';
+                
+                // Process each metadata field
+                filteredMetadata.forEach(([key, value]) => {
+                    // Check if value might be JSON
+                    let displayValue = value;
+                    let isJson = false;
+                    
+                    if (typeof value === 'string' && (value.startsWith('{') || value.startsWith('['))) {
+                        try {
+                            const jsonObj = JSON.parse(value);
+                            displayValue = JSON.stringify(jsonObj, null, 2);
+                            isJson = true;
+                        } catch (e) {
+                            // Not valid JSON, keep as is
+                        }
+                    }
+                    
+                    // Create collapsible section
+                    const section = document.createElement('div');
+                    section.className = 'collapsible-section';
+                    
+                    section.innerHTML = `
+                        <div class="section-header">
+                            <div class="section-title">${key}</div>
+                            <div class="section-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="section-content">
+                            <div class="${isJson ? 'monospace' : ''}">${displayValue}</div>
+                        </div>
+                    `;
+                    
+                    // Set up toggle functionality
+                    const header = section.querySelector('.section-header');
+                    const content = section.querySelector('.section-content');
+                    const icon = section.querySelector('.section-icon');
+                    
+                    header.addEventListener('click', () => {
+                        content.classList.toggle('expanded');
+                        icon.classList.toggle('open');
+                    });
+                    
+                    container.appendChild(section);
+                    
+                    // Auto-expand for certain common fields
+                    if (key === 'Description' || key === 'Author' || (isJson && value.length < 200)) {
+                        setTimeout(() => {
+                            content.classList.add('expanded');
+                            icon.classList.add('open');
+                        }, 100);
+                    }
+                });
+            },
+            
+            // Fetch and process PNG metadata
+            fetchMetadata: async function(file) {
+                if (file.mimeType !== 'image/png') {
+                    return { error: 'Not a PNG file' };
+                }
+                
+                try {
+                    // Get the raw file data
+                    const response = await utils.fetchWithAuth(
+                        `${config.apiEndpoints.files}/${file.id}?alt=media`,
+                        { responseType: 'arraybuffer' }
+                    );
+                    
+                    const buffer = await response.arrayBuffer();
+                    
+                    // Extract metadata
+                    const metadata = await this.extract(buffer);
+                    
+                    return metadata;
+                } catch (error) {
+                    console.error('Error fetching PNG metadata:', error);
+                    return { error: error.message };
+                }
+            }
+        };
+        
+        // Drive API functions
+        const driveApi = {
+            // Fetch folders
+            fetchFolders: async function() {
+                try {
+                    const response = await utils.fetchWithAuth(
+                        `${config.apiEndpoints.files}?q=mimeType='application/vnd.google-apps.folder'&fields=files(id,name,createdTime)`
+                    );
+                    
+                    const data = await response.json();
+                    return data.files || [];
+                } catch (error) {
+                    console.error('Error fetching folders:', error);
+                    throw error;
+                }
+            },
+            
+            // Fetch files in a folder
+            fetchFilesInFolder: async function(folderId) {
+                try {
+                    const query = `'${folderId}' in parents`;
+                    const fields = 'files(id,name,mimeType,thumbnailLink,webContentLink,imageMediaMetadata,size,createdTime,modifiedTime,appProperties)';
+                    
+                    const response = await utils.fetchWithAuth(
+                        `${config.apiEndpoints.files}?q=${encodeURIComponent(query)}&fields=${encodeURIComponent(fields)}`
+                    );
+                    
+                    const data = await response.json();
+                    return data.files || [];
+                } catch (error) {
+                    console.error('Error fetching files:', error);
+                    throw error;
+                }
+            },
+            
+            // Update file properties
+            updateFileProperties: async function(fileId, properties) {
+                try {
+                    const response = await utils.fetchWithAuth(
+                        `${config.apiEndpoints.files}/${fileId}?fields=appProperties`,
+                        {
+                            method: 'PATCH',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ appProperties: properties })
+                        }
+                    );
+                    
+                    return await response.json();
+                } catch (error) {
+                    console.error('Error updating file properties:', error);
+                    throw error;
+                }
+            },
+            
+            // Delete file
+            deleteFile: async function(fileId) {
+                try {
+                    await utils.fetchWithAuth(
+                        `${config.apiEndpoints.files}/${fileId}`,
+                        { method: 'DELETE' }
+                    );
+                    
+                    return true;
+                } catch (error) {
+                    console.error('Error deleting file:', error);
+                    throw error;
+                }
+            }
+        };
+        
+        // Application UI functions
+        const uiManager = {
+            showFolderModal: function() {
+                elements.folder.modal.classList.remove('hidden');
+                this.loadFolders();
+            },
+            
+            hideFolderModal: function() {
+                elements.folder.modal.classList.add('hidden');
+            },
+            
+            loadFolders: async function() {
+                elements.folder.listContainer.innerHTML = `
+                    <div class="flex items-center justify-center py-6">
+                        <div class="loading-spinner"></div>
+                        <span>Loading folders...</span>
+                    </div>
+                `;
+                
+                try {
+                    const folders = await driveApi.fetchFolders();
+                    
+                    if (folders.length === 0) {
+                        elements.folder.listContainer.innerHTML = `
+                            <div class="text-center py-6 text-gray-500">
+                                No folders found in your Google Drive
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    // Sort folders by name
+                    folders.sort((a, b) => a.name.localeCompare(b.name));
+                    
+                    elements.folder.listContainer.innerHTML = '';
+                    
+                    folders.forEach(folder => {
+                        const div = document.createElement('div');
+                        div.className = 'folder-item';
+                        div.innerHTML = `
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#f59e0b" viewBox="0 0 16 16">
+                                <path d="M.5 3l.04.87a1.99 1.99 0 0 0-.342 1.311l.637 7A2 2 0 0 0 2.826 14H9v-1H2.826a1 1 0 0 1-.995-.91l-.637-7A1 1 0 0 1 2.19 4h11.62a1 1 0 0 1 .996 1.09L14.54 8h1.005l.256-2.819A2 2 0 0 0 13.81 3H9.828a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 6.172 1H2.5a2 2 0 0 0-2 2zm5.672-1a1 1 0 0 1 .707.293L7.586 3H2.19c-.24 0-.47.042-.683.12L1.5 2.98a1 1 0 0 1 1-.98h3.672z"/>
+                            </svg>
+                            <span class="truncate">${folder.name}</span>
+                        `;
+                        
+                        div.addEventListener('click', () => {
+                            this.selectFolder(folder);
+                            this.hideFolderModal();
+                        });
+                        
+                        elements.folder.listContainer.appendChild(div);
+                    });
+                } catch (error) {
+                    elements.folder.listContainer.innerHTML = `
+                        <div class="text-center py-6 text-red-500">
+                            Error loading folders. Please try again.
+                        </div>
+                    `;
+                }
+            },
+            
+            selectFolder: async function(folder) {
+                appState.currentFolder = folder.id;
+                appState.currentFolderName = folder.name;
+                elements.folder.current.textContent = folder.name;
+                
+                // Reset state
+                appState.imageFiles = [];
+                appState.currentImageIndex = -1;
+                appState.pngMetadata = {};
+                
+                // Update UI
+                this.updateImageDisplay();
+                this.updateMetadataDisplay();
+                
+                // Disable navigation buttons
+                elements.image.prevButton.disabled = true;
+                elements.image.nextButton.disabled = true;
+                elements.image.deleteButton.disabled = true;
+                elements.batch.button.disabled = true;
+                
+                utils.showStatus('Loading files...');
+                
+                try {
+                    const files = await driveApi.fetchFilesInFolder(folder.id);
+                    
+                    // Filter image files
+                    appState.imageFiles = files.filter(file => 
+                        file.mimeType.startsWith('image/')
+                    );
+                    
+                    if (appState.imageFiles.length === 0) {
+                        utils.showStatus('No images found in this folder');
+                        return;
+                    }
+                    
+                    // Enable batch button if there are PNG files
+                    const hasPngFiles = appState.imageFiles.some(file => file.mimeType === 'image/png');
+                    elements.batch.button.disabled = !hasPngFiles;
+                    
+                    // Load first image
+                    appState.currentImageIndex = 0;
+                    this.loadCurrentImage();
+                } catch (error) {
+                    utils.showStatus('Error loading files: ' + error.message, 4000);
+                }
+            },
+            
+            loadCurrentImage: async function() {
+                if (appState.imageFiles.length === 0 || appState.currentImageIndex < 0) {
+                    this.updateImageDisplay();
+                    this.updateMetadataDisplay();
+                    return;
+                }
+                
+                const currentFile = appState.imageFiles[appState.currentImageIndex];
+                
+                if (!currentFile) {
+                    utils.showStatus('Error: File not found');
+                    return;
+                }
+                
+                // Update navigation buttons
+                elements.image.prevButton.disabled = appState.currentImageIndex <= 0;
+                elements.image.nextButton.disabled = appState.currentImageIndex >= appState.imageFiles.length - 1;
+                elements.image.deleteButton.disabled = false;
+                
+                // Update image display
+                elements.image.display.src = currentFile.thumbnailLink 
+                    ? currentFile.thumbnailLink.replace('=s220', '=s1000')
+                    : (currentFile.webContentLink || `https://drive.google.com/uc?export=view&id=${currentFile.id}`);
+                
+                elements.image.display.alt = currentFile.name || 'Image';
+                
+                // Get image dimensions
+                try {
+                    const dimensions = await pngMetadata.getImageDimensions(elements.image.display.src);
+                    appState.dimensions[currentFile.id] = dimensions;
+                } catch (error) {
+                    console.log('Could not determine image dimensions');
+                }
+                
+                // Update basic metadata display
+                this.updateMetadataDisplay();
+                
+                // Load PNG metadata if applicable
+                if (currentFile.mimeType === 'image/png') {
+                    utils.showStatus('Loading PNG metadata...');
+                    
+                    try {
+                        // First check if metadata is in appProperties
+                        let metadata = {};
+                        if (currentFile.appProperties) {
+                            // Extract metadata from appProperties
+                            for (const [key, value] of Object.entries(currentFile.appProperties)) {
+                                if (key.startsWith('pngMetadata_')) {
+                                    const metadataKey = key.substring(12); // Remove 'pngMetadata_' prefix
+                                    metadata[metadataKey] = value;
+                                }
+                            }
+                        }
+                        
+                        // If no metadata in appProperties, extract from PNG
+                        if (Object.keys(metadata).filter(k => !k.startsWith('_')).length === 0) {
+                            metadata = await pngMetadata.fetchMetadata(currentFile);
+                            
+                            // Save to appProperties for future reference
+                            if (!metadata.error && Object.keys(metadata).length > 0) {
+                                const propsToUpdate = {};
+                                for (const [key, value] of Object.entries(metadata)) {
+                                    if (!key.startsWith('_')) { // Skip internal properties
+                                        propsToUpdate[`pngMetadata_${key}`] = value;
+                                    }
+                                }
+                                
+                                if (Object.keys(propsToUpdate).length > 0) {
+                                    try {
+                                        await driveApi.updateFileProperties(currentFile.id, propsToUpdate);
+                                        utils.showStatus('Metadata saved to file properties');
+                                    } catch (error) {
+                                        console.error('Error saving metadata to appProperties:', error);
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Store metadata and update display
+                        appState.pngMetadata[currentFile.id] = metadata;
+                        pngMetadata.formatForDisplay(metadata);
+                    } catch (error) {
+                        console.error('Error loading PNG metadata:', error);
+                        appState.pngMetadata[currentFile.id] = { error: error.message };
+                        elements.metadata.noCustomMessage.style.display = 'block';
+                        elements.metadata.noCustomMessage.textContent = 'Error loading PNG metadata: ' + error.message;
+                    }
+                } else {
+                    elements.metadata.noCustomMessage.style.display = 'block';
+                    elements.metadata.noCustomMessage.textContent = 'Metadata extraction only available for PNG files';
+                }
+                
+                // Enable edit button if PNG
+                elements.edit.saveButton.disabled = currentFile.mimeType !== 'image/png';
+            },
+            
+            updateImageDisplay: function() {
+                if (appState.imageFiles.length === 0 || appState.currentImageIndex < 0) {
+                    elements.image.display.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300' viewBox='0 0 300 300' fill='none'%3E%3Crect width='300' height='300' fill='%23E5E7EB'/%3E%3Cpath d='M130 120H170V180H130V120Z' fill='%239CA3AF'/%3E%3Ccircle cx='150' cy='90' r='20' fill='%239CA3AF'/%3E%3C/svg%3E";
+                    elements.image.display.alt = "No image selected";
+                    elements.image.prevButton.disabled = true;
+                    elements.image.nextButton.disabled = true;
+                    elements.image.deleteButton.disabled = true;
+                    elements.edit.saveButton.disabled = true;
+                }
+            },
+            
+            updateMetadataDisplay: function() {
+                const resetMetadata = () => {
+                    elements.metadata.filename.textContent = 'No file selected';
+                    elements.metadata.filetype.textContent = '-';
+                    elements.metadata.filesize.textContent = '-';
+                    elements.metadata.created.textContent = '-';
+                    elements.metadata.modified.textContent = '-';
+                    elements.metadata.dimensions.textContent = '-';
+                    elements.metadata.customContainer.innerHTML = '';
+                    elements.metadata.noCustomMessage.style.display = 'block';
+                    elements.metadata.noCustomMessage.textContent = 'No metadata available';
+                };
+                
+                if (appState.imageFiles.length === 0 || appState.currentImageIndex < 0) {
+                    resetMetadata();
+                    return;
+                }
+                
+                const currentFile = appState.imageFiles[appState.currentImageIndex];
+                
+                if (!currentFile) {
+                    resetMetadata();
+                    return;
+                }
+                
+                // File details
+                elements.metadata.filename.textContent = currentFile.name || 'Unnamed file';
+                elements.metadata.filetype.textContent = currentFile.mimeType || 'Unknown';
+                elements.metadata.filesize.textContent = utils.formatFileSize(currentFile.size);
+                elements.metadata.created.textContent = utils.formatDate(currentFile.createdTime);
+                elements.metadata.modified.textContent = utils.formatDate(currentFile.modifiedTime);
+                
+                // Dimensions
+                let dimensionsText = '-';
+                if (currentFile.imageMediaMetadata && currentFile.imageMediaMetadata.width && currentFile.imageMediaMetadata.height) {
+                    dimensionsText = `${currentFile.imageMediaMetadata.width} × ${currentFile.imageMediaMetadata.height}`;
+                } else if (appState.dimensions[currentFile.id]) {
+                    dimensionsText = `${appState.dimensions[currentFile.id].width} × ${appState.dimensions[currentFile.id].height}`;
+                } else if (appState.pngMetadata[currentFile.id] && appState.pngMetadata[currentFile.id]._dimensions) {
+                    dimensionsText = `${appState.pngMetadata[currentFile.id]._dimensions.width} × ${appState.pngMetadata[currentFile.id]._dimensions.height}`;
+                }
+                elements.metadata.dimensions.textContent = dimensionsText;
+                
+                // PNG metadata (already handled in loadCurrentImage)
+                if (currentFile.mimeType !== 'image/png') {
+                    elements.metadata.noCustomMessage.style.display = 'block';
+                    elements.metadata.noCustomMessage.textContent = 'Metadata extraction only available for PNG files';
+                    elements.metadata.customContainer.innerHTML = '';
+                }
+            },
+            
+            prevImage: function() {
+                if (appState.currentImageIndex > 0) {
+                    appState.currentImageIndex--;
+                    this.loadCurrentImage();
+                }
+            },
+            
+            nextImage: function() {
+                if (appState.currentImageIndex < appState.imageFiles.length - 1) {
+                    appState.currentImageIndex++;
+                    this.loadCurrentImage();
+                }
+            },
+            
+            showDeleteModal: function() {
+                elements.delete.modal.classList.remove('hidden');
+            },
+            
+            hideDeleteModal: function() {
+                elements.delete.modal.classList.add('hidden');
+            },
+            
+            deleteCurrentFile: async function() {
+                if (appState.currentImageIndex < 0 || !appState.imageFiles[appState.currentImageIndex]) {
+                    return;
+                }
+                
+                const currentFile = appState.imageFiles[appState.currentImageIndex];
+                
+                try {
+                    await driveApi.deleteFile(currentFile.id);
+                    
+                    // Remove file from array
+                    appState.imageFiles.splice(appState.currentImageIndex, 1);
+                    
+                    utils.showStatus('File deleted successfully');
+                    
+                    // Update current index
+                    if (appState.imageFiles.length === 0) {
+                        appState.currentImageIndex = -1;
+                    } else if (appState.currentImageIndex >= appState.imageFiles.length) {
+                        appState.currentImageIndex = appState.imageFiles.length - 1;
+                    }
+                    
+                    this.loadCurrentImage();
+                    this.hideDeleteModal();
+                } catch (error) {
+                    utils.showStatus('Error deleting file: ' + error.message, 4000);
+                    this.hideDeleteModal();
+                }
+            },
+            
+            saveMetadata: async function() {
+                if (appState.currentImageIndex < 0 || !appState.imageFiles[appState.currentImageIndex]) {
+                    return;
+                }
+                
+                const currentFile = appState.imageFiles[appState.currentImageIndex];
+                
+                if (currentFile.mimeType !== 'image/png') {
+                    utils.showStatus('Can only save metadata for PNG files', 3000);
+                    return;
+                }
+                
+                const key = elements.edit.keyInput.value.trim();
+                const value = elements.edit.valueInput.value.trim();
+                
+                if (!key) {
+                    utils.showStatus('Please enter a metadata key', 3000);
+                    return;
+                }
+                
+                try {
+                    // Update appProperties
+                    const prop = {};
+                    prop[`pngMetadata_${key}`] = value;
+                    
+                    await driveApi.updateFileProperties(currentFile.id, prop);
+                    
+                    // Update local state
+                    if (!appState.pngMetadata[currentFile.id]) {
+                        appState.pngMetadata[currentFile.id] = {};
+                    }
+                    
+                    appState.pngMetadata[currentFile.id][key] = value;
+                    
+                    // Update display
+                    pngMetadata.formatForDisplay(appState.pngMetadata[currentFile.id]);
+                    
+                    utils.showStatus('Metadata saved successfully');
+                    
+                    // Clear inputs
+                    elements.edit.keyInput.value = '';
+                    elements.edit.valueInput.value = '';
+                } catch (error) {
+                    utils.showStatus('Error saving metadata: ' + error.message, 4000);
+                }
+            },
+            
+            showBatchModal: function() {
+                // Reset batch modal
+                elements.batch.addFields.classList.add('hidden');
+                elements.batch.status.classList.add('hidden');
+                elements.batch.results.classList.add('hidden');
+                elements.batch.progress.innerHTML = '';
+                elements.batch.resultsContent.innerHTML = '';
+                elements.batch.closeResultsButton.classList.add('hidden');
+                elements.batch.operationRadios[0].checked = true; // Default to read
+                elements.batch.keyInput.value = '';
+                elements.batch.valueInput.value = '';
+                
+                elements.batch.modal.classList.remove('hidden');
+            },
+            
+            hideBatchModal: function() {
+                elements.batch.modal.classList.add('hidden');
+                appState.isProcessingBatch = false;
+            },
+            
+            updateBatchModalView: function() {
+                const selectedOp = document.querySelector('input[name="batch-operation"]:checked').value;
+                elements.batch.addFields.classList.toggle('hidden', selectedOp !== 'add');
+            },
+            
+            runBatchOperation: async function() {
+                const selectedOp = document.querySelector('input[name="batch-operation"]:checked').value;
+                
+                // If already processing, don't start again
+                if (appState.isProcessingBatch) return;
+                
+                // Get PNG files
+                const pngFiles = appState.imageFiles.filter(file => file.mimeType === 'image/png');
+                
+                if (pngFiles.length === 0) {
+                    utils.showStatus('No PNG files found in this folder', 3000);
+                    return;
+                }
+                
+                appState.isProcessingBatch = true;
+                
+                // Show status panel, hide others
+                elements.batch.status.classList.remove('hidden');
+                elements.batch.results.classList.add('hidden');
+                elements.batch.progress.innerHTML = '';
+                elements.batch.statusMessage.textContent = selectedOp === 'read' 
+                    ? 'Reading PNG metadata...' 
+                    : 'Updating PNG metadata...';
+                
+                // Disable buttons during operation
+                elements.batch.runButton.disabled = true;
+                elements.batch.cancelButton.disabled = true;
+                
+                // Prepare for results
+                const results = [];
+                
+                // Perform operation
+                if (selectedOp === 'read') {
+                    // Read metadata from all PNG files
+                    for (let i = 0; i < pngFiles.length; i++) {
+                        const file = pngFiles[i];
+                        elements.batch.progress.innerHTML += `Processing ${i+1}/${pngFiles.length}: ${file.name}<br>`;
+                        
+                        try {
+                            // Check if we already have metadata for this file
+                            let metadata = {};
+                            if (appState.pngMetadata[file.id]) {
+                                metadata = appState.pngMetadata[file.id];
+                            } else if (file.appProperties) {
+                                // Extract metadata from appProperties
+                                for (const [key, value] of Object.entries(file.appProperties)) {
+                                    if (key.startsWith('pngMetadata_')) {
+                                        const metadataKey = key.substring(12); // Remove 'pngMetadata_' prefix
+                                        metadata[metadataKey] = value;
+                                    }
+                                }
+                            }
+                            
+                            // If no metadata found, fetch from PNG
+                            if (Object.keys(metadata).filter(k => !k.startsWith('_')).length === 0) {
+                                metadata = await pngMetadata.fetchMetadata(file);
+                                
+                                // Save metadata to appProperties
+                                if (!metadata.error && Object.keys(metadata).length > 0) {
+                                    const propsToUpdate = {};
+                                    for (const [key, value] of Object.entries(metadata)) {
+                                        if (!key.startsWith('_')) { // Skip internal properties
+                                            propsToUpdate[`pngMetadata_${key}`] = value;
+                                        }
+                                    }
+                                    
+                                    if (Object.keys(propsToUpdate).length > 0) {
+                                        await driveApi.updateFileProperties(file.id, propsToUpdate);
+                                    }
+                                }
+                            }
+                            
+                            // Store in app state
+                            appState.pngMetadata[file.id] = metadata;
+                            
+                            // Add to results
+                            const metadataKeys = Object.keys(metadata).filter(k => !k.startsWith('_'));
+                            results.push({
+                                name: file.name,
+                                success: true,
+                                metadataCount: metadataKeys.length,
+                                metadata: metadataKeys.join(', ')
+                            });
+                        } catch (error) {
+                            console.error(`Error processing ${file.name}:`, error);
+                            results.push({
+                                name: file.name,
+                                success: false,
+                                error: error.message
+                            });
+                        }
+                    }
+                } else if (selectedOp === 'add') {
+                    // Add/update metadata to all PNG files
+                    const key = elements.batch.keyInput.value.trim();
+                    const value = elements.batch.valueInput.value.trim();
+                    
+                    if (!key) {
+                        elements.batch.statusMessage.textContent = 'Error: Metadata key is required';
+                        elements.batch.runButton.disabled = false;
+                        elements.batch.cancelButton.disabled = false;
+                        appState.isProcessingBatch = false;
+                        return;
+                    }
+                    
+                    for (let i = 0; i < pngFiles.length; i++) {
+                        const file = pngFiles[i];
+                        elements.batch.progress.innerHTML += `Updating ${i+1}/${pngFiles.length}: ${file.name}<br>`;
+                        
+                        try {
+                            // Update appProperties
+                            const prop = {};
+                            prop[`pngMetadata_${key}`] = value;
+                            
+                            await driveApi.updateFileProperties(file.id, prop);
+                            
+                            // Update local state
+                            if (!appState.pngMetadata[file.id]) {
+                                appState.pngMetadata[file.id] = {};
+                            }
+                            
+                            appState.pngMetadata[file.id][key] = value;
+                            
+                            results.push({
+                                name: file.name,
+                                success: true,
+                                metadataKey: key
+                            });
+                        } catch (error) {
+                            console.error(`Error updating ${file.name}:`, error);
+                            results.push({
+                                name: file.name,
+                                success: false,
+                                error: error.message
+                            });
+                        }
+                    }
+                    
+                    // If current file is a PNG, update its metadata display
+                    if (appState.currentImageIndex >= 0) {
+                        const currentFile = appState.imageFiles[appState.currentImageIndex];
+                        if (currentFile && currentFile.mimeType === 'image/png') {
+                            pngMetadata.formatForDisplay(appState.pngMetadata[currentFile.id]);
+                        }
+                    }
+                }
+                
+                // Show results
+                elements.batch.status.classList.add('hidden');
+                elements.batch.results.classList.remove('hidden');
+                
+                // Format results
+                const successCount = results.filter(r => r.success).length;
+                const failCount = results.length - successCount;
+                
+                elements.batch.resultsContent.innerHTML = `
+                    <div class="${successCount > 0 ? 'text-green-600' : ''} mb-2">
+                        ✓ Success: ${successCount} file${successCount !== 1 ? 's' : ''}
+                    </div>
+                    ${failCount > 0 ? `
+                    <div class="text-red-600 mb-2">
+                        ✗ Failed: ${failCount} file${failCount !== 1 ? 's' : ''}
+                    </div>
+                    ` : ''}
+                    <div class="border-t border-gray-300 my-2 pt-2">
+                        <div class="font-medium mb-1">Details:</div>
+                        ${results.map(result => `
+                            <div class="mb-1 ${result.success ? 'text-green-600' : 'text-red-600'}">
+                                ${result.name}: ${result.success ? 
+                                    (selectedOp === 'read' ? 
+                                        `Found ${result.metadataCount} metadata field${result.metadataCount !== 1 ? 's' : ''}` + 
+                                        (result.metadataCount > 0 ? ` (${result.metadata})` : '')
+                                        : `Updated metadata: ${result.metadataKey}`)
+                                    : `Error: ${result.error}`}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                
+                // Update UI
+                elements.batch.closeResultsButton.classList.remove('hidden');
+                elements.batch.runButton.disabled = false;
+                elements.batch.cancelButton.disabled = false;
+                appState.isProcessingBatch = false;
+            }
+        };
+        
+        // Show login or app screen based on auth status
+        function showLoginScreen() {
+            elements.screens.login.classList.remove('hidden');
+            elements.screens.app.classList.add('hidden');
+        }
+        
+        function showAppScreen() {
+            elements.screens.login.classList.add('hidden');
+            elements.screens.app.classList.remove('hidden');
+        }
+        
+        // Initialize app
+        function initApp() {
+            // Make sure all modals are hidden initially
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.classList.add('hidden');
+            });
+            
+            // Check for OAuth callback
+            if (window.location.search.includes('code=')) {
+                if (auth.handleCallback()) {
+                    return; // Auth is being handled, wait for completion
+                }
+            }
+            
+            // Initialize the elements object
+            elements = {
+                screens: {
+                    login: document.getElementById('login-screen'),
+                    app: document.getElementById('app-screen')
+                },
+                auth: {
+                    loginButton: document.getElementById('login-button'),
+                    logoutButton: document.getElementById('logout-button'),
+                    showManualLogin: document.getElementById('show-manual-login'),
+                    manualLoginSection: document.getElementById('manual-login-section'),
+                    manualToken: document.getElementById('manual-token'),
+                    manualLoginButton: document.getElementById('manual-login-button')
+                },
+                folder: {
+                    current: document.getElementById('current-folder'),
+                    modal: document.getElementById('folder-modal'),
+                    listContainer: document.getElementById('folder-list-container'),
+                    closeButton: document.getElementById('close-folder-modal'),
+                    refreshButton: document.getElementById('refresh-folders'),
+                    cancelButton: document.getElementById('cancel-folder-select')
+                },
+                image: {
+                    display: document.getElementById('image-display'),
+                    prevButton: document.getElementById('prev-button'),
+                    nextButton: document.getElementById('next-button'),
+                    deleteButton: document.getElementById('delete-button')
+                },
+                metadata: {
+                    tabs: document.querySelectorAll('.metadata-tab'),
+                    sections: document.querySelectorAll('.metadata-section'),
+                    filename: document.getElementById('filename-value'),
+                    filetype: document.getElementById('filetype-value'),
+                    filesize: document.getElementById('filesize-value'),
+                    created: document.getElementById('created-value'),
+                    modified: document.getElementById('modified-value'),
+                    dimensions: document.getElementById('dimensions-value'),
+                    customContainer: document.getElementById('custom-metadata-container'),
+                    noCustomMessage: document.getElementById('no-custom-metadata')
+                },
+                edit: {
+                    keyInput: document.getElementById('metadata-key'),
+                    valueInput: document.getElementById('metadata-value'),
+                    saveButton: document.getElementById('save-metadata-button')
+                },
+                batch: {
+                    button: document.getElementById('batch-button'),
+                    modal: document.getElementById('batch-modal'),
+                    closeButton: document.getElementById('close-batch-modal'),
+                    cancelButton: document.getElementById('cancel-batch'),
+                    runButton: document.getElementById('run-batch'),
+                    operationRadios: document.getElementsByName('batch-operation'),
+                    addFields: document.getElementById('batch-add-fields'),
+                    keyInput: document.getElementById('batch-key'),
+                    valueInput: document.getElementById('batch-value'),
+                    status: document.getElementById('batch-status'),
+                    statusMessage: document.getElementById('batch-status-message'),
+                    progress: document.getElementById('batch-progress'),
+                    results: document.getElementById('batch-results'),
+                    resultsContent: document.getElementById('batch-results-content'),
+                    closeResultsButton: document.getElementById('close-batch-results')
+                },
+                delete: {
+                    modal: document.getElementById('delete-modal'),
+                    closeButton: document.getElementById('close-delete-modal'),
+                    cancelButton: document.getElementById('cancel-delete'),
+                    confirmButton: document.getElementById('confirm-delete')
+                },
+                statusMessage: document.getElementById('status-message')
+            };
+            
+            // Check for auth status
+            if (auth.checkAuth()) {
+                showAppScreen();
+            } else {
+                showLoginScreen();
+            }
+            
+            // Set up event listeners
+            setupEventListeners();
+        }
+        
+        function setupEventListeners() {
+            // Auth
+            elements.auth.loginButton.addEventListener('click', auth.login);
+            elements.auth.logoutButton.addEventListener('click', auth.logout);
+            
+            // Manual login toggle
+            elements.auth.showManualLogin.addEventListener('click', () => {
+                elements.auth.manualLoginSection.classList.toggle('hidden');
+            });
+            
+            // Manual login button
+            elements.auth.manualLoginButton.addEventListener('click', () => {
+                const token = elements.auth.manualToken.value.trim();
+                if (token) {
+                    appState.accessToken = token;
+                    utils.storeToken(token);
+                    showAppScreen();
+                } else {
+                    utils.showStatus('Please enter a valid access token', 3000);
+                }
+            });
+            
+            // Folder selection
+            elements.folder.current.addEventListener('click', () => uiManager.showFolderModal());
+            elements.folder.closeButton.addEventListener('click', () => uiManager.hideFolderModal());
+            elements.folder.cancelButton.addEventListener('click', () => uiManager.hideFolderModal());
+            elements.folder.refreshButton.addEventListener('click', () => uiManager.loadFolders());
+            
+            // Navigation
+            elements.image.prevButton.addEventListener('click', () => uiManager.prevImage());
+            elements.image.nextButton.addEventListener('click', () => uiManager.nextImage());
+            elements.image.deleteButton.addEventListener('click', () => uiManager.showDeleteModal());
+            
+            // Delete modal
+            elements.delete.closeButton.addEventListener('click', () => uiManager.hideDeleteModal());
+            elements.delete.cancelButton.addEventListener('click', () => uiManager.hideDeleteModal());
+            elements.delete.confirmButton.addEventListener('click', () => uiManager.deleteCurrentFile());
+            
+            // Batch operations
+            elements.batch.button.addEventListener('click', () => uiManager.showBatchModal());
+            elements.batch.closeButton.addEventListener('click', () => uiManager.hideBatchModal());
+            elements.batch.cancelButton.addEventListener('click', () => uiManager.hideBatchModal());
+            elements.batch.closeResultsButton.addEventListener('click', () => uiManager.hideBatchModal());
+            elements.batch.runButton.addEventListener('click', () => uiManager.runBatchOperation());
+            
+            // Update batch modal view when operation changes
+            elements.batch.operationRadios.forEach(radio => {
+                radio.addEventListener('change', () => uiManager.updateBatchModalView());
+            });
+            
+            // Metadata tabs
+            elements.metadata.tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    // Get tab name
+                    const tabName = tab.dataset.tab;
+                    
+                    // Update active tab
+                    elements.metadata.tabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    
+                    // Update active section
+                    elements.metadata.sections.forEach(section => section.classList.remove('active'));
+                    document.getElementById(`${tabName}-section`).classList.add('active');
+                });
+            });
+            
+            // Save metadata
+            elements.edit.saveButton.addEventListener('click', () => uiManager.saveMetadata());
+            
+            // Key handlers
+            document.addEventListener('keydown', (e) => {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                    return; // Don't handle keypresses in form inputs
+                }
+                
+                switch (e.key) {
+                    case 'ArrowLeft':
+                        if (!elements.image.prevButton.disabled) {
+                            uiManager.prevImage();
+                        }
+                        break;
+                    case 'ArrowRight':
+                        if (!elements.image.nextButton.disabled) {
+                            uiManager.nextImage();
+                        }
+                        break;
+                    case 'Delete':
+                        if (!elements.image.deleteButton.disabled) {
+                            uiManager.showDeleteModal();
+                        }
+                        break;
+                    case 'Escape':
+                        // Close any open modals
+                        if (!elements.folder.modal.classList.contains('hidden')) {
+                            uiManager.hideFolderModal();
+                        } else if (!elements.batch.modal.classList.contains('hidden')) {
+                            uiManager.hideBatchModal();
+                        } else if (!elements.delete.modal.classList.contains('hidden')) {
+                            uiManager.hideDeleteModal();
+                        }
+                        break;
+                }
+            });
+        }
+        
+        // Start app when document loads
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
